@@ -1,0 +1,827 @@
+openapi: 3.0.2
+info:
+  title: "TerraMagna's IAM Service API"
+  version: '2.0'
+  description: |
+    TerraMagna's Identity and Access Management Service.
+servers:
+  - description: SwaggerHub API Auto Mocking
+    url: 'https://virtserver.swaggerhub.com/TerraMagna/iam-service/2.0'
+  - url: 'https://iam.terramagna.com.br/'
+    description: API Endpoint.
+paths:
+  /client:
+    get:
+      summary: Get client data by client ID.
+      description: |
+        It returns the following client's info based on the client id or the client name.
+        If it doesn't the client wasn't found, or it doesn't receive client name neither client id it will return 404.
+          - `id`: Client's id;
+          - `name`: Client's name not humam readable;
+          - `pretty_name`: Client's name human readable;
+          - `cnpj`: Client's National Juridic Person Registry.
+      parameters:
+        - $ref: '#/components/parameters/client_id'
+        - $ref: '#/components/parameters/client_name'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+  /authorization:
+    get:
+      summary: Validates that a token has the requested permissions.
+      description: |
+        It must receive an Authorization header with the token to be validated.
+      parameters:
+        - $ref: '#/components/parameters/permission'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserTokenPayload'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+  /divisions:
+    post:
+      summary: Creates a new division for a client.
+      security:
+        - authorization:
+            - 'divisions:write'
+      parameters:
+        - in: query
+          name: name
+          description: |
+            The new division's name.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Succesfully created division.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Division'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '409':
+          $ref: '#/components/responses/409Conflict'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    get:
+      summary: Lists divisions for a client.
+      security:
+        - authorization:
+            - 'divisions:read'
+      responses:
+        '200':
+          description: List divisions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  divisions:
+                    description: A list of divisions.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Division'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/divisions/{id}':
+    delete:
+      summary: Delete a division.
+      security:
+        - authorization:
+            - 'divisions:write'
+      parameters:
+        - in: path
+          name: id
+          description: |
+            The targeted division's id.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Succesfully deleted division.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  /passwords/request:
+    post:
+      summary: Request a password reset for a user.
+      parameters:
+        - in: query
+          name: email
+          description: |
+            The email of the user whose password will be changed.
+          required: true
+          schema:
+            $ref: '#/components/schemas/Email'
+      responses:
+        '200':
+          description: Password change request accepted.
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/passwords/request/{id}':
+    get:
+      summary: Checks if the password change request is valid.
+      parameters:
+        - in: path
+          name: id
+          description: |
+            The ID of the password change request to be validated.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Request is valid.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email:
+                    $ref: '#/components/schemas/Email'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    post:
+      summary: Changes user password.
+      parameters:
+        - in: path
+          name: id
+          description: |
+            The ID of the request of password change.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: |
+          The new credentials to be used as the user's password.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Succesfully changed password.
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  /users:
+    get:
+      summary: List users of a client.
+      security:
+        - authorization:
+            - 'users:read'
+      responses:
+        '200':
+          description: List users.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    post:
+      summary: Creates a new user.
+      security:
+        - authorization:
+            - 'users:write'
+      requestBody:
+        description: |
+          The user to be created.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnregisteredUser'
+      responses:
+        '200':
+          description: Succesfully created a user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '409':
+          $ref: '#/components/responses/409Conflict'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/users/{user}':
+    delete:
+      summary: Delete a user.
+      security:
+        - authorization:
+            - 'users:write'
+      parameters:
+        - in: path
+          name: user
+          description: |
+            The ID of the user to be deleted.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Succesfully deleted user.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    patch:
+      summary: Update a user
+      security:
+        - authorization:
+            - 'users:write'
+      parameters:
+        - in: path
+          name: user
+          description: |
+            The ID of the user to be updated.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: |
+          The changes to be made.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDelta'
+      responses:
+        '200':
+          description: Succesfully updated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '422':
+          $ref: '#/components/responses/422UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  /users/login:
+    post:
+      summary: Login as a user.
+      requestBody:
+        description: |
+          The user's credentials.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Succesfully logged in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithToken'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/users/{user}/division':
+    post:
+      summary: Add user to a division
+      security:
+        - authorization:
+            - 'divisions:write'
+      parameters:
+        - in: path
+          name: user
+          description: |
+            The ID of the user to be added to the division.
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: id
+          description: |
+            The ID of the targeted division.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Succesfully added user to division.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    delete:
+      summary: Remove the user from its division.
+      security:
+        - authorization:
+            - 'divisions:write'
+      parameters:
+        - in: path
+          name: user
+          description: |
+            The ID of the user to be removed from the division.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Succesfully removed user from its division.
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+components:
+  securitySchemes:
+    authorization:
+      type: oauth2
+      flows:
+        implicit:
+          authorizationUrl: 'https://iam.terramagna.com.br/iam_service/login'
+          scopes:
+            'divisions:read': "Read divisions' information."
+            'divisions:write': Create and delete divisions.
+            'users:read': "Read users' information."
+            'users:write': Create and delete users.
+  parameters:
+    permission:
+      name: permission
+      in: query
+      description: |
+        teste
+      schema:
+        $ref: '#/components/schemas/Permission'
+      required: true
+    client_id:
+      name: client_id
+      in: query
+      description: |
+        A client's identifier
+      schema:
+        $ref: '#/components/schemas/Id'
+    client_name:
+      name: client_name
+      in: query
+      description: |
+        A client's name
+      schema:
+        type: string
+        minLength: 1
+      example: Terra Magna Processamento de dados LTDA
+  responses:
+    401Unauthorized:
+      description: |
+        Missing or invalid credentials.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - UNAUTHORIZED
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    403Forbidden:
+      description: |
+        The user doesn't have authorization to access the resource.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - FORBIDDEN
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    404NotFound:
+      description: |
+        The requested resource could not be found.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - USER_NOT_FOUND
+                      - DIVISION_NOT_FOUND
+                      - REQUEST_NOT_FOUND
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    409Conflict:
+      description: |
+        The request could not be completed due to a conflict with the current
+        state of the target resource.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - CONFLICT
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    422UnprocessableEntity:
+      description: |
+        The request was well-formed but was unable to be followed due to semantic errors.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - UNPROCESSABLE_ENTITY
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    500InternalError:
+      description: |
+        Internal server error.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - INTERNAL_ERROR
+                  message:
+                    type: string
+                    minLength: 1
+                required:
+                  - code
+                  - message
+            required:
+              - error
+  schemas:
+    Id:
+      description: |
+        An Entity's Identifier.
+
+        This provides an unified interface for handling all the identifiers used with int32
+        in the API.
+      type: integer
+      format: int32
+      minimum: 1
+    Client:
+      description: A registered client.
+      type: object
+      properties:
+        id:
+          description: "Client's unique identifier."
+          type: string
+          format: uuid
+        name:
+          description: "Client's standardized name."
+          type: string
+        pretty_name:
+          description: "Client's human readable name."
+          type: string
+        cnpj:
+          description: "Client's national juridic person registry."
+          type: string
+      required:
+        - id
+        - name
+        - pretty_name
+    Credentials:
+      description: "User's login credentials."
+      type: object
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          $ref: '#/components/schemas/Password'
+      required:
+        - email
+        - password
+    Division:
+      description: |
+        The division that the user is part of.
+
+        Although we send the entire division, systems SHOULD NOT rely
+        in the divison's name for ANYTHING, _except_ showing it to the
+        user.
+      type: object
+      properties:
+        id:
+          description: "Division's unique identifier."
+          type: string
+          format: uuid
+        name:
+          description: "Division's name."
+          type: string
+      required:
+        - id
+        - name
+    Email:
+      description: "User's email."
+      type: string
+      format: email
+    Level:
+      description: |
+        Permission Access Level.
+
+        This enum specifies what a given permission can do to the until now
+        specified entity ([Module].[Scope]).
+      type: string
+      enum:
+        - READ
+        - WRITE
+    Module:
+      description: |
+        Possible modules for permissions.
+
+        Each module here defined is equivalent to some service in the FIDES
+        system. If a new service is created, and it needs special permissions,
+        we need to add it here.
+      type: string
+      enum:
+        - MONITORING
+        - REGISTER
+        - STORAGE
+        - IDENTIFICATION
+    Password:
+      description: A wrapper over a string to safely handle passwords.
+      type: string
+      format: password
+    Permission:
+      description: "An individual permission.\n\nThis is the interface that APIs MUST use when authorizing a user.\n\n# Structure\n\nEach permission is composed of three parts: a module, a scope and\na level. Each part thigens the access given by the permission\nuntil operation level.\n\nWe can imagine the set of all permissions as being a florest,\nwhich each service having its own tree, with leaves being each\noperation that the user is capable of executing:\n\n```ignore\n* Onboarding\n    \\ Agents\n        \\ Read\n        \\ Write ...\n* Identification\n    \\ Users\n        \\ Read\n        \\ Write ...\n...\n```\n\nThis is a good mental model, but can quickly grow ridiculous big\nand dependent on other services implementations. To solve this\nissue we limit the level that a permission can have to only\nread/write. See [Level] for a more in-depth explanation about this.\n"
+      type: object
+      properties:
+        module:
+          $ref: '#/components/schemas/Module'
+        scope:
+          $ref: '#/components/schemas/Scope'
+        level:
+          $ref: '#/components/schemas/Level'
+    Role:
+      description: |
+        Role of a user.
+
+        A role represents a fixed set of permissions. The client may only
+        add restrictions (in form of tags, not yet impl.) but cannot change
+        the permissions available to them neither the available role types.
+
+        Although this may seem limiting, this is simpler for the user understanding
+        to the system, and give us a high level abstraction over permissions.
+
+        It's important to note that APIs still need to operate at [Permission]
+        level, as [Role] is an internal abstraction of the IAM service.
+        type: string
+      enum:
+        - MANAGER
+        - ANALYST
+        - OPERATIONS_MANAGER
+    Roles:
+      description: The set of roles the user has.
+      type: array
+      items:
+        $ref: '#/components/schemas/Role'
+    Scope:
+      description: |
+        Possible modules' scopes.
+
+        Each entity in the FIDES system that needs special permissions needs
+        to be listed here.
+      type: string
+      enum:
+        - ANALYSES
+        - PRODUCERS
+        - OPERATIONS
+        - FARMS
+        - BLOBS
+        - USERS
+        - DIVISIONS
+        - ROLES
+    UnregisteredUser:
+      description: A sketch of a user to be registered.
+      type: object
+      properties:
+        name:
+          description: "User's full name."
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+      required:
+        - name
+        - email
+    User:
+      description: A FIDES system user.
+      type: object
+      properties:
+        id:
+          description: "User's unique identifier."
+          type: string
+          format: uuid
+        name:
+          description: "User's full name."
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+        division:
+          $ref: '#/components/schemas/Division'
+        roles:
+          $ref: '#/components/schemas/Roles'
+      required:
+        - id
+        - name
+        - email
+        - roles
+    UserDelta:
+      description: "The change's to be updated in a user instance."
+      type: object
+      properties:
+        name:
+          description: "Changes in the user's name."
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          $ref: '#/components/schemas/Password'
+        roles:
+          $ref: '#/components/schemas/Roles'
+        division:
+          $ref: '#/components/schemas/Division'
+    UserTokenPayload:
+      description: "The information inside the user's identity token."
+      type: object
+      properties:
+        id:
+          description: "User's unique identifier."
+          type: string
+          format: uuid
+        name:
+          description: "User's full name."
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+        division:
+          $ref: '#/components/schemas/Division'
+        roles:
+          $ref: '#/components/schemas/Roles'
+        client:
+          $ref: '#/components/schemas/Client'
+      required:
+        - id
+        - name
+        - email
+        - roles
+        - client
+    UserWithToken:
+      description: A FIDES system user with its token.
+      type: object
+      properties:
+        id:
+          description: "User's unique identifier."
+          type: string
+          format: uuid
+        name:
+          description: "User's full name."
+          type: string
+        email:
+          $ref: '#/components/schemas/Email'
+        division:
+          $ref: '#/components/schemas/Division'
+        roles:
+          $ref: '#/components/schemas/Roles'
+        token:
+          description: "User's access token."
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - roles
+        - token

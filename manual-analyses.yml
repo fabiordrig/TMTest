@@ -1,0 +1,877 @@
+openapi: 3.0.2
+servers:
+  - description: SwaggerHub API Auto Mocking
+    url: 'https://virtserver.swaggerhub.com/TerraMagna/manual-analyses/1.0.0'
+info:
+  title: "TerraMagna's Manual Analyses Service API"
+  version: '0.1'
+  description: |
+    # Introduction
+
+    The Manual Analyses Service API expose operations that interacts with agronomic,
+    and cartographic analyses, both tasks and results.
+
+    The fact that the analyses are executed _manually_ by _a person_ changes how the
+    internal process of the service works in a manner that clients of it must be aware
+    of. The complete process of the execution of a task will described later.
+
+    # General Definitions
+
+    ## Authorization
+
+    Authorization follows the standard pattern used by other TerraMagna's API:
+    authenticate with the IAM service and send the token in the `Authorization`
+    header.
+
+    ## Dates and Timestamps
+
+    All dates and timestamps used in the API interface are in the [RFC 3339]
+    format and in the [Coordinated Universal Time (UTC)] time zone.
+
+    [RFC 3339]: https://tools.ietf.org/html/rfc3339#section-5.6
+    [Coordinated Universal Time (UTC)]: https://en.wikipedia.org/wiki/Coordinated_Universal_Time
+
+    ## Pagination
+
+    All listing operations provide pagination capabilities in the form of the parameters
+    `page` and `size` which both are not required but need to be _strictly positives_
+    (i.e. pages start at index 1).
+security:
+  - authorization: []
+tags:
+  - name: Tasks
+  - name: Images
+  - name: Execution
+paths:
+  /tasks:
+    get:
+      tags:
+        - Tasks
+      operationId: listTasks
+      summary: List tasks given specific filters.
+      description: |
+        List all subset of tasks specified in the parameters.
+      parameters:
+        - $ref: '#/components/parameters/after'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: noImages
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Should tasks with no images be returned?
+        - name: done
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Should concluded tasks be returned?
+        - name: pending
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Should pending tasks be returned?
+        - name: review
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Should review tasks be returned?
+      responses:
+        '200':
+          description: Correctly returned the tasks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPage'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    post:
+      tags:
+        - Tasks
+      operationId: createTask
+      summary: Creates a new task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTask'
+      responses:
+        '201':
+          description: Correctly created the task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/tasks/{taskId}':
+    get:
+      tags:
+        - Tasks
+      operationId: getTaskById
+      summary: Get a specific task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      responses:
+        '200':
+          description: Found the task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    put:
+      tags:
+        - Tasks
+      operationId: updateTask
+      summary: Updates a specific task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        '204':
+          description: The task was updated.
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    delete:
+      tags:
+        - Tasks
+      operationId: deleteTask
+      summary: Deletes a specific task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      responses:
+        '204':
+          description: The task was deleted.
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/tasks/{taskId}:review':
+    post:
+      tags:
+        - Tasks
+      operationId: reviewTask
+      summary: Request a review of a specific task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      responses:
+        '202':
+          description: A review task was created for this task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/tasks/{taskId}/charts':
+    get:
+      tags:
+        - Execution
+        - Tasks
+      operationId: listTaskCharts
+      summary: List all the charts descriptions for this task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      responses:
+        '200':
+          description: A review task was created for this task.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  charts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChartContentDescription'
+                    uniqueItems: true
+                required:
+                  - charts
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/tasks/{taskId}/charts/{chartIdx}':
+    get:
+      tags:
+        - Execution
+        - Tasks
+      operationId: getChartById
+      summary: Return the data for a specific chart.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+        - name: chartIdx
+          in: path
+          schema:
+            type: integer
+            minimum: 1
+          required: true
+          description: Index of the chart to be returned.
+      responses:
+        '200':
+          description: Found the chart.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChartContent'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/tasks/{taskId}/images':
+    get:
+      tags:
+        - Images
+        - Execution
+        - Tasks
+      operationId: listTaskImages
+      summary: List all the images needed to the execution of this task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      responses:
+        '200':
+          description: Found the chart.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskImages'
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    post:
+      tags:
+        - Images
+        - Tasks
+      operationId: saveTaskImages
+      summary: Persist the images needed to the execution of this task.
+      parameters:
+        - $ref: '#/components/parameters/taskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskImages'
+      responses:
+        '201':
+          description: Images persisted.
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  /me/next:
+    get:
+      tags:
+        - Execution
+      operationId: getNextTask
+      summary: The next task to be executed by the user.
+      responses:
+        '200':
+          description: The next task to be executed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '204':
+          description: No task is assigned to the user.
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+    post:
+      tags:
+        - Execution
+      operationId: concludeTask
+      summary: Concludes the execution of the task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionTaskPayload'
+      responses:
+        '201':
+          description: The task was concluded with success.
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+  '/me/next:start':
+    post:
+      tags:
+        - Execution
+      summary: Starts the execution of the task.
+      responses:
+        '204':
+          description: No task is assigned to the user.
+        '403':
+          $ref: '#/components/responses/403Forbidden'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '409':
+          $ref: '#/components/responses/409Conflict'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+components:
+  securitySchemes:
+    authorization:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    after:
+      name: after
+      in: query
+      schema:
+        $ref: '#/components/schemas/DateTime'
+      description: |
+        Minimum timestamp to be used as a filter during the operation.
+
+        This provides an interface for clients fetching only the resources
+        created after the provided timestamp, instead of all of them.
+
+        If no value is provided, no filter will be applied and _all_ the
+        resources will be returned.
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 6553500
+        default: 1
+      description: 'Number of tha page requested, 1-indexed.'
+    size:
+      name: size
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 10
+        maximum: 65535
+        default: 100
+      description: Size of the page requested.
+    taskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+      description: The ID of a task.
+  responses:
+    403Forbidden:
+      description: "The user doesn't have authorization to execute the operation."
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - UNAUTHORIZED
+                  message:
+                    type: string
+                    enum:
+                      - "The user doesn't have access to the operation"
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    404NotFound:
+      description: "The resource wasn't found."
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - TASK_NOT_FOUND
+                  message:
+                    type: string
+                    example: "The task '3fa85f64-5717-4562-b3fc-2c963f66afa6' was not found."
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    409Conflict:
+      description: |
+        The request generated a conflict with the current state
+        of the system.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - NOT_REFUSED
+                  message:
+                    type: string
+                    example: "The request '3fa85f64-5717-4562-b3fc-2c963f66afa6' was not refused."
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    422UnprocessableEntity:
+      description: |
+        The request contains some semantic error and could not
+        be processed.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum:
+                      - OPERATION_MISSING
+                  message:
+                    type: string
+                    example: "The operation data for request '3fa85f64-5717-4562-b3fc-2c963f66afa6' was not found."
+                required:
+                  - code
+                  - message
+            required:
+              - error
+    500InternalError:
+      description: |
+        Unknown error that may occurr due to unexpected errors inside
+        code, infrastructure errors, etc.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        enum:
+                          - INTERNAL_ERROR
+                      message:
+                        type: string
+              - type: string
+  schemas:
+    Id:
+      description: |
+        An Entity's Identifier.
+
+        This provides an unified interface for handling all the identifiers used
+        in the API.
+      type: string
+      format: uuid
+    SerialId:
+      description: |
+        An Entity's Serial Identifier.
+
+        This provides an unified interface for handling all the identifiers used
+        in the API.
+      type: integer
+      minimum: 1
+    DateTime:
+      description: |
+        A timestamp in the [RFC 3339] format.
+
+        [RFC 3339]: https://tools.ietf.org/html/rfc3339#section-5.6
+      type: string
+      format: date-time
+      example: '1996-12-19T16:39:57-03:00'
+    Date:
+      description: |
+        ISO 8601 date in the UTC time zone. Its value should be formatted in the
+        format described in [RFC 3339].
+
+        [RFC 3339]: https://tools.ietf.org/html/rfc3339#section-5.6
+      type: string
+      format: date
+      example: '1996-12-19'
+    Hyperlink:
+      description: A REST hypermedia link.
+      type: string
+      format: uri
+      example: '/tasks?page=123&size=50'
+    Entity:
+      description: |
+        A generic entity.
+
+        This schema provides the basic properties that every entity should
+        contain.
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        creationTime:
+          $ref: '#/components/schemas/DateTime'
+        creator:
+          $ref: '#/components/schemas/Id'
+        deletionTime:
+          $ref: '#/components/schemas/DateTime'
+        deleter:
+          $ref: '#/components/schemas/Id'
+      required:
+        - id
+        - creator
+        - creationTime
+    Page:
+      description: |
+        A generic page.
+
+        *OBS*: This schema should not be used directly in others schemas, designers
+        must create a specific page adding the property that contains the entities
+        returned.
+      type: object
+      properties:
+        total:
+          description: |
+            Total number of elements in the collection.
+
+            This can be used to properly implement pagination in user interfaces.
+          type: integer
+          minimum: 0
+        links:
+          description: |
+            Hyperlinks available for the page.
+
+            `self` will always be present but `previous` and `next` will only
+            occurr if they in fact exists.
+          type: object
+          properties:
+            self:
+              $ref: '#/components/schemas/Hyperlink'
+            previous:
+              $ref: '#/components/schemas/Hyperlink'
+            next:
+              $ref: '#/components/schemas/Hyperlink'
+          required:
+            - self
+    Task:
+      description: A task.
+      allOf:
+        - $ref: '#/components/schemas/Entity'
+        - type: object
+          required:
+            - type
+            - dueDate
+            - assignee
+            - farmId
+            - operationId
+            - links
+          properties:
+            type:
+              $ref: '#/components/schemas/TaskType'
+            dueDate:
+              $ref: '#/components/schemas/Date'
+            assigneeId:
+              $ref: '#/components/schemas/Id'
+            farmId:
+              $ref: '#/components/schemas/SerialId'
+            operationId:
+              $ref: '#/components/schemas/SerialId'
+            reviewedTaskId:
+              $ref: '#/components/schemas/Id'
+            links:
+              type: object
+              properties:
+                self:
+                  $ref: '#/components/schemas/Hyperlink'
+                assignee:
+                  $ref: '#/components/schemas/Hyperlink'
+                farm:
+                  $ref: '#/components/schemas/Hyperlink'
+                operation:
+                  $ref: '#/components/schemas/Hyperlink'
+                reviewedTask:
+                  $ref: '#/components/schemas/Hyperlink'
+                start:
+                  $ref: '#/components/schemas/Hyperlink'
+                conclude:
+                  $ref: '#/components/schemas/Hyperlink'
+                charts:
+                  $ref: '#/components/schemas/Hyperlink'
+                images:
+                  $ref: '#/components/schemas/Hyperlink'
+              required:
+                - self
+                - assignee
+                - farm
+                - operation
+    NewTask:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/TaskType'
+        farmId:
+          $ref: '#/components/schemas/SerialId'
+        operationId:
+          $ref: '#/components/schemas/SerialId'
+      required:
+        - type
+        - farmId
+        - operationId
+    TaskType:
+      type: string
+      enum:
+        - PLANTING
+        - HARVEST
+        - CROP_TYPE
+    TaskPage:
+      description: A page of tasks.
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            tasks:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Task'
+    ChartContentDescription:
+      type: object
+      properties:
+        stand:
+          type: integer
+          minimum: 1
+        area:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        links:
+          type: object
+          properties:
+            content:
+              $ref: '#/components/schemas/Hyperlink'
+          example:
+            content: '/tasks/{taksId}/charts/{chartIdx}'
+          required:
+            - content
+      required:
+        - stand
+        - area
+        - links
+    ChartContent:
+      allOf:
+        - $ref: '#/components/schemas/AnalysisResults'
+        - type: object
+          properties:
+            timeseries:
+              type: array
+              readOnly: true
+              items:
+                $ref: '#/components/schemas/TimeSeries'
+          required:
+            - timeseries
+            - results
+    Result:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/ResultsType'
+        date:
+          $ref: '#/components/schemas/Date'
+      required:
+        - type
+        - date
+    ResultsType:
+      type: string
+      enum:
+        - PLANTING
+        - SENESCENCE
+        - IMMEDIATE_HARVEST
+        - HARVESTED
+    CropType:
+      type: string
+      enum:
+        - BEAN
+        - COFFEE
+        - CORN
+        - COTTON
+        - EUCALYPTUS
+        - OAT
+        - OTHERS
+        - PEANUT
+        - RICE
+        - SORGHUM
+        - SUGARCANE
+        - SOYBEAN
+        - UNKNOWN
+        - WHEAT
+    TimeSeries:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/TimeSeriesType'
+        data:
+          type: array
+          uniqueItems: true
+          items:
+            type: object
+            properties:
+              date:
+                $ref: '#/components/schemas/Date'
+              value:
+                type: number
+                minimum: 0
+            required:
+              - date
+              - value
+      required:
+        - type
+        - data
+    TimeSeriesType:
+      type: string
+      enum:
+        - NDVI_MEAN_250_MODIS
+    Image:
+      type: object
+      properties:
+        extent:
+          $ref: '#/components/schemas/Polygon'
+        blobId:
+          $ref: '#/components/schemas/Id'
+        date:
+          $ref: '#/components/schemas/Date'
+        cloudCoverage:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+        - extent
+        - blobId
+        - date
+        - cloudCoverage
+    ImageColor:
+      type: string
+      enum:
+        - RGB
+    TaskImages:
+      type: object
+      properties:
+        imagesByColor:
+          type: array
+          items:
+            type: object
+            properties:
+              color:
+                $ref: '#/components/schemas/ImageColor'
+              images:
+                type: array
+                uniqueItems: true
+                items:
+                  $ref: '#/components/schemas/Image'
+            required:
+              - color
+              - images
+      required:
+        - imagesByColor
+    Polygon:
+      description: A GeoJSON polygon.
+      externalDocs:
+        url: 'https://tools.ietf.org/html/rfc7946#section-3.1.6'
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - MultiPolygon
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Point'
+    Point:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        type: number
+    AnalysisResults:
+      type: object
+      properties:
+        stand:
+          $ref: '#/components/schemas/SerialId'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Result'
+          uniqueItems: true
+        cropType:
+          $ref: '#/components/schemas/CropType'
+      required:
+        - stand
+        - results
+    ExecutionTaskPayload:
+      type: object
+      properties:
+        changedAnalyses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisResults'
+          uniqueItems: true
+      required:
+        - changedAnalyses
